@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Webcam Paint Application
 
 ## Overview
@@ -42,3 +43,6 @@ Contributions are welcome! Please feel free to submit a pull request or open an 
 
 ## License
 This project is licensed under the MIT License. See the LICENSE file for details.
+=======
+# webcam-paint-app
+>>>>>>> 51490d901523ddc5a6f821fc04ed5238a9b4da15
