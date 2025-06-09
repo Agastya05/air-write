@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 from hand_tracking import HandTracker
 from painter import Painter
+import mediapipe as mp
 
 # Define color palette and brush sizes
 COLOR_PALETTE = [
@@ -51,13 +52,18 @@ def main():
         if not ret:
             break
 
-        frame = cv2.flip(frame, 1)  # Un-mirror the webcam
+        frame = cv2.flip(frame, 1)
+        # Optional: Resize for faster processing (uncomment if needed)
+        # frame = cv2.resize(frame, (640, 480))
 
-        # Get hand position and fist status
         hand_result = hand_tracker.get_hand_position(frame)
 
         if hand_result:
-            x, y, _ = hand_result  # Ignore is_fist now
+            x, y, is_open_palm = hand_result
+
+            # Clear canvas gesture
+            if is_open_palm:
+                painter.clear_canvas()
 
             # Check "Erase All" button
             if 10 < x < 110 and 10 < y < 50:
@@ -97,7 +103,6 @@ def main():
             painter.clear_canvas()
 
     cap.release()
-    cv2.destroyAllWindows()
 
 if __name__ == "__main__":
     main()
