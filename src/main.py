@@ -3,6 +3,7 @@ import numpy as np
 from hand_tracking import HandTracker
 from painter import Painter
 import mediapipe as mp
+from collections import deque
 
 # Define color palette and brush sizes
 COLOR_PALETTE = [
@@ -13,6 +14,8 @@ COLOR_PALETTE = [
     ((255, 255, 255), "White"),
 ]
 BRUSH_SIZES = [3, 7, 12]
+
+erase_counter = 0
 
 def draw_ui(frame, selected_color, selected_size):
     h, w, _ = frame.shape
@@ -46,6 +49,7 @@ def main():
     painter = Painter(canvas)
     selected_color = COLOR_PALETTE[0][0]
     selected_size = BRUSH_SIZES[0]
+    smooth_points = deque(maxlen=5)  # Keep last 5 points
 
     while True:
         ret, frame = cap.read()
@@ -59,11 +63,23 @@ def main():
         hand_result = hand_tracker.get_hand_position(frame)
 
         if hand_result:
-            x, y, is_open_palm = hand_result
+            x, y, is_open_palm, confidence = hand_result
+            if confidence < 0.7:
+                painter.stop_drawing()
+                draw_ui(frame, selected_color, selected_size)
+                output = cv2.addWeighted(frame, 0.5, painter.canvas, 0.5, 0)
+                cv2.imshow("Webcam Paint App", output)
+                continue
+            smooth_points.append((x, y))
+            avg_x = int(np.mean([pt[0] for pt in smooth_points]))
+            avg_y = int(np.mean([pt[1] for pt in smooth_points]))
 
-            # Clear canvas gesture
             if is_open_palm:
-                painter.clear_canvas()
+                erase_counter += 1
+                if erase_counter > 5:  # Only erase if palm is open for 5+ frames
+                    painter.clear_canvas()
+            else:
+                erase_counter = 0
 
             # Check "Erase All" button
             if 10 < x < 110 and 10 < y < 50:
@@ -85,7 +101,7 @@ def main():
 
             painter.set_color(selected_color)
             painter.start_drawing()
-            painter.draw_line((x, y))
+            painter.draw_line((avg_x, avg_y))
         else:
             painter.stop_drawing()
 
