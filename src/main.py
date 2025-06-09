@@ -32,11 +32,12 @@ def draw_ui(frame, selected_color, selected_size):
         cv2.circle(frame, (x, y), size, (200, 200, 200), -1)
         if size == selected_size:
             cv2.circle(frame, (x, y), size + 5, (0, 255, 255), 2)
-    # Draw "Erase All" button (top left corner)
-    cv2.rectangle(frame, (10, 10), (110, 50), (0, 0, 255), -1)
-    cv2.putText(frame, "Erase All", (15, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255,255,255), 2)
+    # Draw "Exit" button (top left, below brush sizes)
+    cv2.rectangle(frame, (10, 200), (110, 240), (0, 0, 0), -1)
+    cv2.putText(frame, "Exit", (30, 230), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255,255,255), 2)
 
 def main():
+    global erase_counter  # Add this line
     # Initialize webcam feed
     cap = cv2.VideoCapture(0)
     ret, frame = cap.read()
@@ -81,10 +82,6 @@ def main():
             else:
                 erase_counter = 0
 
-            # Check "Erase All" button
-            if 10 < x < 110 and 10 < y < 50:
-                painter.clear_canvas()
-
             # Check color palette
             for i, (color, _) in enumerate(COLOR_PALETTE):
                 x1, y1 = frame.shape[1] - 60, 10 + i * 50
@@ -98,6 +95,12 @@ def main():
                 if (x - bx) ** 2 + (y - by) ** 2 < (size + 10) ** 2:
                     painter.set_brush_size(size)
                     selected_size = size
+
+            # Exit button logic (top left, below brush sizes)
+            # Exit button rectangle: (10, 200) to (110, 240)
+            if 10 < avg_x < 110 and 200 < avg_y < 240:
+                print("Exit button hovered. Exiting...")
+                break
 
             painter.set_color(selected_color)
             painter.start_drawing()
