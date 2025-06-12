@@ -10,12 +10,19 @@ COLOR_PALETTE = [
     ((255, 0, 0), "Blue"),
     ((0, 255, 0), "Green"),
     ((0, 0, 255), "Red"),
+    ((0, 255, 255), "Yellow"),
+    ((255, 0, 255), "Magenta"),
+    ((255, 255, 0), "Cyan"),
+    ((128, 0, 128), "Purple"),
+    ((0, 128, 255), "Orange"),
+    ((128, 128, 128), "Gray"),
     ((0, 0, 0), "Black"),
     ((255, 255, 255), "White"),
 ]
-BRUSH_SIZES = [3, 7, 12]
+BRUSH_SIZES = [3, 7, 12, 20, 30]  # Add as many as you like
 
 erase_counter = 0
+undo_counter = 0  # Add this near the top of main()
 
 def draw_ui(frame, selected_color, selected_size):
     h, w, _ = frame.shape
@@ -32,12 +39,20 @@ def draw_ui(frame, selected_color, selected_size):
         cv2.circle(frame, (x, y), size, (200, 200, 200), -1)
         if size == selected_size:
             cv2.circle(frame, (x, y), size + 5, (0, 255, 255), 2)
-    # Draw "Exit" button (top left, below brush sizes)
-    cv2.rectangle(frame, (10, 200), (110, 240), (0, 0, 0), -1)
-    cv2.putText(frame, "Exit", (30, 230), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255,255,255), 2)
+    # Draw "Exit" button (bottom left, bigger)
+    exit_x1, exit_y1 = 20, h - 90
+    exit_x2, exit_y2 = 220, h - 30
+    cv2.rectangle(frame, (exit_x1, exit_y1), (exit_x2, exit_y2), (0, 0, 0), -1)
+    cv2.putText(frame, "Exit", (exit_x1 + 40, exit_y2 - 15), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255,255,255), 3)
+
+    # Draw "Erase All" button next to Exit
+    erase_x1, erase_y1 = 240, h - 90
+    erase_x2, erase_y2 = 440, h - 30
+    cv2.rectangle(frame, (erase_x1, erase_y1), (erase_x2, erase_y2), (0, 0, 255), -1)
+    cv2.putText(frame, "Erase All", (erase_x1 + 10, erase_y2 - 15), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255,255,255), 3)
 
 def main():
-    global erase_counter  # Add this line
+    global erase_counter, undo_counter  # Add this line
     # Initialize webcam feed
     cap = cv2.VideoCapture(0)
     ret, frame = cap.read()
@@ -64,7 +79,7 @@ def main():
         hand_result = hand_tracker.get_hand_position(frame)
 
         if hand_result:
-            x, y, is_open_palm, confidence = hand_result
+            x, y, is_open_palm, confidence, pen_down = hand_result
             if confidence < 0.7:
                 painter.stop_drawing()
                 draw_ui(frame, selected_color, selected_size)
@@ -74,13 +89,6 @@ def main():
             smooth_points.append((x, y))
             avg_x = int(np.mean([pt[0] for pt in smooth_points]))
             avg_y = int(np.mean([pt[1] for pt in smooth_points]))
-
-            if is_open_palm:
-                erase_counter += 1
-                if erase_counter > 5:  # Only erase if palm is open for 5+ frames
-                    painter.clear_canvas()
-            else:
-                erase_counter = 0
 
             # Check color palette
             for i, (color, _) in enumerate(COLOR_PALETTE):
@@ -96,15 +104,31 @@ def main():
                     painter.set_brush_size(size)
                     selected_size = size
 
-            # Exit button logic (top left, below brush sizes)
-            # Exit button rectangle: (10, 200) to (110, 240)
-            if 10 < avg_x < 110 and 200 < avg_y < 240:
+            h, w, _ = frame.shape  # Make sure this is defined
+
+            # Exit button logic (bottom left, bigger)
+            if 20 < avg_x < 220 and (h - 90) < avg_y < (h - 30):
                 print("Exit button hovered. Exiting...")
                 break
 
-            painter.set_color(selected_color)
-            painter.start_drawing()
-            painter.draw_line((avg_x, avg_y))
+            # Erase All button logic (next to Exit)
+            if 240 < avg_x < 440 and (h - 90) < avg_y < (h - 30):
+                print("Erase All button hovered. Clearing canvas...")
+                painter.clear_canvas()
+
+            # Only draw when pen_down is True
+            if pen_down:
+                painter.start_drawing()
+                # Only draw if movement is significant
+                if painter.last_position:
+                    dx = avg_x - painter.last_position[0]
+                    dy = avg_y - painter.last_position[1]
+                    if dx*dx + dy*dy > 4:  # Only draw if moved more than 2 pixels
+                        painter.draw_line((avg_x, avg_y))
+                else:
+                    painter.draw_line((avg_x, avg_y))  # Start drawing at first point
+            else:
+                painter.stop_drawing()
         else:
             painter.stop_drawing()
 
